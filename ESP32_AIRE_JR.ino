@@ -42,7 +42,7 @@
 //////////////////////////////////////////////////////////
 // Two time zones, voice prompts and Pac-Man animations //
 //////////////////////////////////////////////////////////
-static String HWversion = "v1.53"; // Control loads, depending on solar production
+static String HWversion = "v1.54"; // Control loads, depending on solar production
 
 ////////////////////////// INVERTER //////////////////////////////////////////////
 static String IPinverter = "192.168.1.112";
@@ -135,6 +135,9 @@ bool alTXT = false;
 int alarm_H = 10;
 bool sound_chime = false;
 int h,m,s,m2;
+int myH;
+boolean Hide_OLED = false;
+boolean Night_OLED = false;
 
 // Turn on debug statements to the serial output
 #define DEBUG  1
@@ -333,6 +336,7 @@ void loop() {
   m = (CurrentTime.substring(3,5)).toInt();
   s = (CurrentTime.substring(6,8)).toInt();
 
+  convert_EU_Time();
   if (sound_chime == true && s <= 5 && _scroll == false){
     checkAlarm();
   }
@@ -457,7 +461,6 @@ void readConfig(){
     inverter_mode  = 2;
     EEPROM.write(4, inverter_mode);
   }
-
   PRINT("\ninverter_mode: ",inverter_mode);
 
   // 5 - Speed Matrix (delay)  
@@ -470,6 +473,16 @@ void readConfig(){
 
   PRINT("\nalarm_H: ",alarm_H);
 
+
+  // 7 - Night_OLED (true/false)
+  Night_OLED = EEPROM.read(7);
+  if (Night_OLED > 1) {
+    Night_OLED = true;
+    EEPROM.write(7, Night_OLED);
+  }
+  PRINT("\nNight_OLED: ",Night_OLED);
+ 
+  
   // 8 - AC1 (true/false)
   AC1 = EEPROM.read(8);
   if (AC1 > 1) {
@@ -599,91 +612,95 @@ boolean UpdateLocalTime() {
 /////////////////////////////////////////////////////
 void Oled_Time() { 
   display.clearDisplay();
-  display.setCursor(2,0);   // center date display
-  display.setTextSize(1);   
-  display.println(CurrentDate);
-
-  display.setTextSize(2);   
-  display.setCursor(8,16);  // center Time display
-  if (CurrentTime.startsWith("0")){
-    display.println(CurrentTime.substring(1,5));
-  }else {
-    display.setCursor(0,16);
-    display.println(CurrentTime.substring(0,5));
-  }
+  if (Hide_OLED == false) {
+    display.setCursor(2,0);   // center date display
+    display.setTextSize(1);   
+    display.println(CurrentDate);
   
-  if (display_EU == true) {
-    display.setCursor(7,33); // center Time display
-    if (_scroll) {
-      display.print("----");
-    }else{
-      display.print("(" + CurrentTime.substring(6,8) + ")");
+    display.setTextSize(2);   
+    display.setCursor(8,16);  // center Time display
+    if (CurrentTime.startsWith("0")){
+      display.println(CurrentTime.substring(1,5));
+    }else {
+      display.setCursor(0,16);
+      display.println(CurrentTime.substring(0,5));
     }
-  }else {
-    if (_scroll) {
-      display.print("----");
-    }else{
-      display.print("(" + CurrentTime.substring(6,8) + ")");
+    
+    if (display_EU == true) {
+      display.setCursor(7,33); // center Time display
+      if (_scroll) {
+        display.print("----");
+      }else{
+        display.print("(" + CurrentTime.substring(6,8) + ")");
+      }
+    }else {
+      if (_scroll) {
+        display.print("----");
+      }else{
+        display.print("(" + CurrentTime.substring(6,8) + ")");
+      }
+      display.setTextSize(1);
+      display.setCursor(40,33); 
+      display.print(CurrentTime.substring(8,11));
     }
-    display.setTextSize(1);
-    display.setCursor(40,33); 
-    display.print(CurrentTime.substring(8,11));
   }
   display.display();
 }
 /////////////////////////////////////////////////////
 void oled_power() { 
-  int p;
   display.clearDisplay();
-  display.setCursor(8,0);   // center time display
-  display.setTextSize(1);   
-  display.println(CurrentTime);
-
-  // Power select to OLED dispaly
-  display.setTextSize(2);   
-
-  if (errInverter == true) {
-    display.setCursor(0,12);  // ERROR
-    display.println(F("ERROR"));
-    display.setCursor(0,32); 
-    display.println(F("INVER"));
-  }else {
-    if (inverter_mode == 0) {
-      if (StatusCode != 7 && P_PV == 0) {
-        display.setTextSize(1);   
-        display.setCursor(0,16); 
-        display.println(F("Status-ERR"));
-        display.setTextSize(2);   
-        String msg =  String(StatusCode) + "-" + String(ErrorCode);
-        p = String(msg).length(); 
-        p = (80-(p*16))/2;
-        display.setCursor(p,32); 
-        display.println(msg);
-      }else {
-        display.setCursor(0,12);  // SOLAR
-        display.println(F("SOLAR"));
-        p = String(P_PV).length(); 
-        p = (80-(p*16))/2;
-        display.setCursor(p,32); 
-        display.println(P_PV);
-      }
-    }else if (inverter_mode == 1) {
-      display.setCursor(8,12);  // LOAD
-      display.println(F("LOAD"));
-      p = String(P_Load).length(); 
-      p = (80-(p*16))/2;
-      display.setCursor(p,32); 
-      display.println(P_Load);
+  if (Hide_OLED == false) {
+    int p;
+    display.setCursor(8,0);   // center time display
+    display.setTextSize(1);   
+    display.println(CurrentTime);
+  
+    // Power select to OLED dispaly
+    display.setTextSize(2);   
+  
+    if (errInverter == true) {
+      display.setCursor(0,12);  // ERROR
+      display.println(F("ERROR"));
+      display.setCursor(0,32); 
+      display.println(F("INVER"));
     }else {
-      //display.setCursor(8,12);  // GRID
-      //display.println(F("GRID"));
-      display.setCursor(0,12);  // G-AON
-      display.println(msgAIRE);
-
-      p = String(P_Grid).length(); 
-      p = (80-(p*16))/2;
-      display.setCursor(p,32); 
-      display.println(P_Grid);
+      if (inverter_mode == 0) {
+        if (StatusCode != 7 && P_PV == 0) {
+          display.setTextSize(1);   
+          display.setCursor(0,16); 
+          display.println(F("Status-ERR"));
+          display.setTextSize(2);   
+          String msg =  String(StatusCode) + "-" + String(ErrorCode);
+          p = String(msg).length(); 
+          p = (80-(p*16))/2;
+          display.setCursor(p,32); 
+          display.println(msg);
+        }else {
+          display.setCursor(0,12);  // SOLAR
+          display.println(F("SOLAR"));
+          p = String(P_PV).length(); 
+          p = (80-(p*16))/2;
+          display.setCursor(p,32); 
+          display.println(P_PV);
+        }
+      }else if (inverter_mode == 1) {
+        display.setCursor(8,12);  // LOAD
+        display.println(F("LOAD"));
+        p = String(P_Load).length(); 
+        p = (80-(p*16))/2;
+        display.setCursor(p,32); 
+        display.println(P_Load);
+      }else {
+        //display.setCursor(8,12);  // GRID
+        //display.println(F("GRID"));
+        display.setCursor(0,12);  // G-AON
+        display.println(msgAIRE);
+  
+        p = String(P_Grid).length(); 
+        p = (80-(p*16))/2;
+        display.setCursor(p,32); 
+        display.println(P_Grid);
+      }
     }
   }
   display.display();
@@ -962,7 +979,13 @@ void NTP_Clock_home_page() {
   webpage += "<a>Brightness<br>MIN(0) <input type=\"range\" name=\"Bright\" min=\"0\" max=\"15\" value=\"";
   webpage += brightness;
   webpage += "\"> (15)MAX</a></form>";
-  webpage += "<p><a href=\"\"><type=\"button\" onClick=\"SendBright()\" class=\"button\">Send Brightness</button></a></p>";
+
+  webpage += "<p><a href=\"\"><type=\"button\" onClick=\"SendBright()\" class=\"button\">Send Brightness</button></a>";
+  if (Night_OLED == true ) {
+    webpage += "<a href=\"\\NIGHT\"><type=\"button\" class=\"button\">OLED: Night</button></a></p>";
+  }else {
+    webpage += "<a href=\"\\DAY\"><type=\"button\" class=\"button\">OLED: Day</button></a></p>";
+  }
   
   webpage += "<p><a href=\"\\DISPLAY_INVERTER\"><type=\"button\" class=\"button\">Inverter";
   if (display_inverter==true) webpage += " = ON"; 
@@ -1076,6 +1099,12 @@ void display_inverter_mode() {
 void display_matrix_speed() {
   EEPROM.begin(EEPROM_SIZE);
   EEPROM.write(5, matrix_speed);
+  end_Eprom();
+}
+//////////////////////////////////////////////////////////////
+void oled_night_toggle() {
+  EEPROM.begin(EEPROM_SIZE);
+  EEPROM.write(7, Night_OLED);
   end_Eprom();
 }
 //////////////////////////////////////////////////////////////
@@ -1339,6 +1368,20 @@ void _save_bright(){
   responseWeb();
 }
 /////////////////////////////////////////////////////////////////
+void _night(){
+  Night_OLED = false;
+  PRINTS("\n-> OLED: Day");
+  oled_night_toggle();
+  responseWeb();
+}
+/////////////////////////////////////////////////////////////////
+void _day(){
+  Night_OLED = true;
+  PRINTS("\n-> OLED: Night");
+  oled_night_toggle();
+  responseWeb();
+}
+/////////////////////////////////////////////////////////////////
 void _restart_1() {
   T_Zone2=false;
   PRINT("\n>>> SYNC Time: ",zone1);
@@ -1456,6 +1499,8 @@ void checkServer(){
   server.on("/BRIGHT=13", _bright_13); 
   server.on("/BRIGHT=14", _bright_14); 
   server.on("/BRIGHT=15", _bright_15); 
+  server.on("/NIGHT", _night);
+  server.on("/DAY", _day);
   server.on("/HOME", _home);
   server.on("/CARRILLON", _carrillon);
   server.on("/UMBRAL_AC", _umbral_ac);
@@ -1481,21 +1526,17 @@ void testBCD() {
 }
 /////////////////////////////////////////////////////////////////
 void checkAlarm(){
-  int myH;
-  //Convert to EU time for alarm
-  String modT = CurrentTime.substring(9,10);
-  if (modT == "P" && h!=12) {
-    myH=h+12;
-  }else if (modT == "A" && h==12) {
-    myH=0;
-  }else {
-    myH=h;
-  }
-  //PRINT("\nTime: ", CurrentTime + " -> EU:" + myH + " s:" + String(s));
- 
   // Hourly announcements from 'alarm_H' to 11 p.m. 
   if (myH >= alarm_H && m == 0) {
     soundAlarm(myH);
+  }
+}
+/////////////////////////////////////////////////////////////////
+void check_Hide_OLED(){
+  if ((myH >= 7 && myH != 23) || Night_OLED == false) {
+    Hide_OLED = false;
+  }else {
+    Hide_OLED = true;
   }
 }
 /////////////////////////////////////////////////////////////////
@@ -1780,6 +1821,21 @@ void queryInverter(int query){
   Serial.println (StatusCode);
   Serial.print (F("ErrorCode: "));
   Serial.println (ErrorCode);
+}
+/////////////////////////////////////////////////////////////////
+void convert_EU_Time() {
+  //Convert to EU time for hide OLED
+  String modT = CurrentTime.substring(9,10);
+  if (modT == "P" && h!=12) {
+    myH=h+12;
+  }else if (modT == "A" && h==12) {
+    myH=0;
+  }else {
+    myH=h;
+  }
+  //PRINT("\nTime: ", CurrentTime + " -> EU:" + myH + " s:" + String(s));
+
+  check_Hide_OLED();
 }
 /////////////////////////////////////////////////////////////////
 void display_scroll_msg() {
