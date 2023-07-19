@@ -1017,7 +1017,7 @@ void NTP_Clock_home_page() {
 
   
   
-  webpage += "</p><hr class=\"line\">";
+  webpage += "</p><br><hr class=\"line\">";
 
   webpage += "<p><a href=\"\\RESTART_1\"><type=\"button\" class=\"button\">RTC: ";
   webpage += zone1;
