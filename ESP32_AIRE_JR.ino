@@ -42,7 +42,7 @@
 //////////////////////////////////////////////////////////
 // Two time zones, voice prompts and Pac-Man animations //
 //////////////////////////////////////////////////////////
-static String HWversion = "v1.54"; // Control loads, depending on solar production
+static String HWversion = "v1.55"; // Control loads, depending on solar production
 
 ////////////////////////// INVERTER //////////////////////////////////////////////
 static String IPinverter = "192.168.1.112";
@@ -67,6 +67,7 @@ int P_PV = 0;           // Solar W
 int P_Load = 0;         // Load W 
 int P_Grid = 0;         // Grid W 
 bool overGrid = false;  // Status to Blink over Grid Power
+bool reIni = true;      // Start mark, to turn off the air conditioner if it was on
 
 // Control loads, depending on solar production
 bool Manual_AIRE = true;
@@ -1644,6 +1645,13 @@ void playIP(){
 /////////////////////////////////////////////////////////////////
 void testAire(){
   setAIRE();
+  
+  if (Status_AIRE == true && reIni == true){
+    pulsaAIRE(); // >>> PULSA AC... off at startup 
+    clkTimeA = millis();
+  }
+  reIni = false;
+  
   if(millis()-clkTimeA > 60000){
     clkTimeA = millis();
     Cont_Min = Cont_Min - 1;
